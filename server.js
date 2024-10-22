@@ -10,9 +10,10 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 // MySQL connection
-const sequelize = new Sequelize('chat-app', 'root', 'Today@0004', {
-    host: 'localhost',
+const sequelize = new Sequelize('chat-app', 'avnadmin', 'AVNS_4c3BtByux_Zrt-LiW6-', {
+    host: 'mysql-1b23a9b5-poizen.h.aivencloud.com',
     dialect: 'mysql',
+    port: 22330,
 });
 
 (async () => {
