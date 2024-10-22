@@ -1,4 +1,4 @@
-const socket = new WebSocket('ws://localhost:3000'); // Update with your server URL
+const socket = new WebSocket('wss://chat-app-608h.onrender.com/'); // Update with your server URL
 let token = ''; // Store JWT token
 
 const messagesContainer = document.getElementById('messages');
