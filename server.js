@@ -43,23 +43,49 @@ const User = sequelize.define('User', {
     await User.sync();
 })();
 
-let clients = [];
+const clients = {};
+const onlineUsers = new Set();
 
-wss.on('connection', (ws) => {
-    clients.push(ws);
+wss.on('connection', (ws, req) => {
+    const token = req.url.split('?token=')[1];
+    if (!token) {
+        ws.close();
+        return;
+    }
 
-    ws.on('message', (message) => {
-        clients.forEach((client) => {
-            if (client !== ws && client.readyState === WebSocket.OPEN) {
-                client.send(message);
+    try {
+        const decoded = jwt.verify(token, 'your_jwt_secret');
+        clients[decoded.userId] = ws;
+        onlineUsers.add(decoded.userId);
+
+        // Notify others about the new user
+        broadcast({ event: 'user-online', userId: decoded.userId });
+
+        ws.on('message', (message) => {
+            const { recipientId, content } = JSON.parse(message);
+            if (clients[recipientId]) {
+                clients[recipientId].send(JSON.stringify({ senderId: decoded.userId, content }));
             }
         });
-    });
 
-    ws.on('close', () => {
-        clients = clients.filter((client) => client !== ws);
-    });
+        ws.on('close', () => {
+            delete clients[decoded.userId];
+            onlineUsers.delete(decoded.userId);
+            broadcast({ event: 'user-offline', userId: decoded.userId });
+        });
+    } catch (err) {
+        ws.close();
+    }
 });
+
+function broadcast(data) {
+    const message = JSON.stringify(data);
+    for (const userId of onlineUsers) {
+        if (clients[userId] && clients[userId].readyState === WebSocket.OPEN) {
+            clients[userId].send(message);
+        }
+    }
+}
 
 app.use(express.static('public'));
 app.use(express.json()); // For parsing application/json
@@ -68,11 +94,10 @@ app.use(express.json()); // For parsing application/json
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
 
-    // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
     try {
-        const newUser = await User.create({ username, password: hashedPassword });
+        await User.create({ username, password: hashedPassword });
         res.status(201).send('User registered successfully');
     } catch (err) {
         res.status(400).send('Error registering user: ' + err.message);
