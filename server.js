@@ -26,5 +26,5 @@ wss.on('connection', (ws) => {
 });
 
 server.listen(3000, () => {
-  console.log('Server started on http://localhost:3000');
+  console.log('Server started on https://chat-app-608h.onrender.com/');
 });
