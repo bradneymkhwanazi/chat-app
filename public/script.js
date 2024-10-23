@@ -167,6 +167,39 @@ function removeUserFromList(username) {
     updateUserListDisplay(); // Update UI
 }
 
+let loggedInUser = ''; // Variable to store the logged-in username
+
+// Event listener for login
+document.getElementById('login-button').addEventListener('click', async () => {
+    const username = document.getElementById('login-username').value;
+    const password = document.getElementById('login-password').value;
+    const response = await fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+    });
+    if (response.ok) {
+        const data = await response.json();
+        token = data.token;
+        loggedInUser = username; // Store the logged-in username
+        socket.send(token); // Send token to WebSocket server
+        document.getElementById('auth-container').style.display = 'none';
+        document.getElementById('chat-container').style.display = 'block';
+        displayLoggedInUser(loggedInUser); // Update UI to show logged-in user
+        displayFeedback('Login successful!');
+    } else {
+        displayFeedback('Login failed. Please check your credentials.');
+    }
+});
+
+// Function to display the logged-in user
+function displayLoggedInUser(username) {
+    const loggedInDisplay = document.getElementById('logged-in-user');
+    loggedInDisplay.textContent = `Logged in as: ${username}`;
+}
+
+
+
 // Update the displayed list of online users
 function updateUserListDisplay() {
     userListContainer.innerHTML = ''; // Clear existing list
