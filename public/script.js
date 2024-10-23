@@ -9,6 +9,9 @@ const messagesContainer = document.getElementById('messages');
 const messageInput = document.getElementById('message-input');
 const sendButton = document.getElementById('send-button');
 const typingIndicator = document.getElementById('typing-indicator'); // Ensure you have an element for the typing indicator
+const userListContainer = document.getElementById('user-list'); // Element to display online users
+
+const onlineUsers = new Set(); // To track online users
 
 // Retrieve token from localStorage if available
 token = localStorage.getItem('token');
@@ -155,9 +158,21 @@ socket.onclose = () => {
 
 // Functions to manage user status updates
 function addUserToList(username) {
-    // Implementation to add user to the connected users list
+    onlineUsers.add(username); // Add user to the set
+    updateUserListDisplay(); // Update UI
 }
 
 function removeUserFromList(username) {
-    // Implementation to remove user from the connected users list
+    onlineUsers.delete(username); // Remove user from the set
+    updateUserListDisplay(); // Update UI
+}
+
+// Update the displayed list of online users
+function updateUserListDisplay() {
+    userListContainer.innerHTML = ''; // Clear existing list
+    onlineUsers.forEach(user => {
+        const userDiv = document.createElement('div');
+        userDiv.textContent = user; // Display the username
+        userListContainer.appendChild(userDiv);
+    });
 }
