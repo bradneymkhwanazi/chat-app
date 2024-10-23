@@ -1,57 +1,174 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="style.css">
-  <title>WebSocket Chat</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat App</title>
+    <link rel="stylesheet" href="styles.css">
+    <script>
+        const socket = new WebSocket('ws://localhost:3000'); // Update with your server URL
+        let token = '';
+
+        // Event listener for WebSocket connection
+        socket.addEventListener('open', () => {
+            console.log('Connected to WebSocket server');
+        });
+
+        // Function to display user list
+        function displayUserList(users) {
+            const userList = document.getElementById('users');
+            userList.innerHTML = ''; // Clear the current list
+            users.forEach(user => {
+                const li = document.createElement('li');
+                li.textContent = user;
+                userList.appendChild(li);
+            });
+        }
+
+        // Function to send messages
+        function sendMessage(content, type, recipient) {
+            const message = { type, content };
+            if (type === 'PRIVATE_MESSAGE') {
+                message.recipient = recipient;
+            }
+            socket.send(JSON.stringify(message));
+        }
+
+        // Event listener for message input
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('send-button').addEventListener('click', () => {
+                const messageInput = document.getElementById('message-input');
+                const content = messageInput.value;
+                sendMessage(content, 'PUBLIC_MESSAGE');
+                messageInput.value = ''; // Clear the input
+                displayFeedback('Message sent!');
+            });
+
+            // Event listener for registration
+            document.getElementById('register-button').addEventListener('click', async () => {
+                const username = document.getElementById('register-username').value;
+                const password = document.getElementById('register-password').value;
+                const response = await fetch('/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                if (response.ok) {
+                    displayFeedback('Registration successful! Please log in.');
+                } else {
+                    displayFeedback('Registration failed. Please try again.');
+                }
+            });
+
+            // Event listener for login
+            document.getElementById('login-button').addEventListener('click', async () => {
+                const username = document.getElementById('login-username').value;
+                const password = document.getElementById('login-password').value;
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    token = data.token;
+                    socket.send(token); // Send token to WebSocket server
+                    document.getElementById('auth-container').style.display = 'none';
+                    document.getElementById('chat-container').style.display = 'block';
+                    displayFeedback('Login successful!');
+                } else {
+                    displayFeedback('Login failed. Please check your credentials.');
+                }
+            });
+
+            // Event listener for joining rooms
+            document.getElementById('join-room-button').addEventListener('click', () => {
+                const roomInput = document.getElementById('room-input');
+                const roomName = roomInput.value;
+                sendMessage(roomName, 'JOIN_ROOM');
+                roomInput.value = ''; // Clear the input
+                displayFeedback(`Joined room: ${roomName}`);
+            });
+
+            // WebSocket message handler
+            socket.addEventListener('message', (event) => {
+                const message = JSON.parse(event.data);
+                switch (message.type) {
+                    case 'USER_LIST':
+                        displayUserList(message.users);
+                        break;
+                    case 'MESSAGE':
+                        displayMessage(message);
+                        break;
+                    case 'PRIVATE_MESSAGE':
+                        displayPrivateMessage(message);
+                        break;
+                }
+            });
+        });
+
+        // Function to display messages
+        function displayMessage(message) {
+            const messagesDiv = document.getElementById('messages');
+            const msgElement = document.createElement('div');
+            msgElement.textContent = `${message.from}: ${message.content} [${new Date(message.timestamp).toLocaleTimeString()}]`;
+            messagesDiv.appendChild(msgElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight; // Auto-scroll to bottom
+        }
+
+        // Function to display private messages
+        function displayPrivateMessage(message) {
+            const messagesDiv = document.getElementById('messages');
+            const msgElement = document.createElement('div');
+            msgElement.textContent = `Private from ${message.from}: ${message.content} [${new Date(message.timestamp).toLocaleTimeString()}]`;
+            messagesDiv.appendChild(msgElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight; // Auto-scroll to bottom
+        }
+
+        // Function to display user feedback
+        function displayFeedback(msg) {
+            const feedbackDiv = document.createElement('div');
+            feedbackDiv.textContent = msg;
+            feedbackDiv.className = 'feedback';
+            document.body.appendChild(feedbackDiv);
+            setTimeout(() => {
+                feedbackDiv.remove();
+            }, 3000); // Remove after 3 seconds
+        }
+    </script>
 </head>
 <body>
-  <div class="chat-container">
-    <div class="messages-container" id="messages"></div>
-    <div class="message-input-container">
-      <input type="text" id="messageInput" placeholder="Type a message...">
-      <button id="sendButton">Send</button>
-    </div>
-  </div>
+    <div id="auth-container">
+        <h2>Register</h2>
+        <input id="register-username" type="text" placeholder="Username">
+        <input id="register-password" type="password" placeholder="Password">
+        <button id="register-button">Register</button>
 
-  <script>
-    const messagesDiv = document.getElementById('messages');
-    const messageInput = document.getElementById('messageInput');
-    const sendButton = document.getElementById('sendButton');
-    const ws = new WebSocket('ws://localhost:3000');
-  
-    ws.addEventListener('message', (event) => {
-      const message = event.data;
-      displayMessage(message);
-    });
-  
-    sendButton.addEventListener('click', () => {
-      const message = messageInput.value;
-      ws.send(message);
-      displayMessage(message, true);
-      messageInput.value = '';
-    });
-  
-    function displayMessage(message, isSender = false) {
-      const messageContainer = document.createElement('div');
-      const messageElement = document.createElement('div');
-      messageElement.textContent = message;
-      
-      messageContainer.classList.add('message-container');
-      
-      if (isSender) {
-        messageContainer.classList.add('sender-message-container');
-        messageElement.classList.add('message-bubble', 'sender-message-bubble');
-      } else {
-        messageElement.classList.add('message-bubble');
-      }
-      
-      messageContainer.appendChild(messageElement);
-      messagesDiv.appendChild(messageContainer);
-      
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    }
-  </script>
+        <h2>Login</h2>
+        <input id="login-username" type="text" placeholder="Username">
+        <input id="login-password" type="password" placeholder="Password">
+        <button id="login-button">Login</button>
+    </div>
+
+    <div id="chat-container" style="display:none;">
+        <div id="logged-in-user" style="font-weight: bold; margin-bottom: 10px;"></div> <!-- Display for logged-in user -->
+        <div id="user-list">
+            <h3>Online Users</h3>
+            <ul id="users"></ul>
+        </div>
+
+        <div id="messages" style="max-height: 400px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-bottom: 10px;">
+            <!-- Messages will be displayed here -->
+        </div>
+
+        <input id="message-input" type="text" placeholder="Type a message...">
+        <button id="send-button">Send</button>
+
+        <div id="room-container">
+            <h3>Chat Rooms</h3>
+            <input id="room-input" type="text" placeholder="Room name">
+            <button id="join-room-button">Join Room</button>
+        </div>
+    </div>
 </body>
 </html>
